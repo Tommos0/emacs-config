@@ -18,8 +18,8 @@
 ;; add local lisp directory to load path
 (add-to-list 'load-path (expand-file-name "lisp" user-emacs-directory))
 
-(setq custom-file (expand-file-name "custom.el" user-emacs-directory))
-(load (locate-user-emacs-file custom-file))
+(setq custom-file (locate-user-emacs-file "custom-vars.el"))
+(load custom-file)
 
 (defvar bootstrap-version)
 (let ((bootstrap-file
@@ -68,6 +68,12 @@
     ("C-k" . 'vertico-previous)
     ("C-S-K" . 'vertico-scroll-down)
     ("C-S-J" . 'vertico-scroll-up)))
+
+;; Persist history over Emacs restarts. Vertico sorts by history position.
+(use-package savehist
+  :init
+  (savehist-mode))
+
 
 (use-package orderless
   :custom
@@ -168,13 +174,15 @@
   (doom-themes-visual-bell-config)
   (doom-themes-org-config))
 
+;(load-theme 'modus-vivendi t)
+
 (use-package auto-dim-other-buffers
   :init
   (auto-dim-other-buffers-mode)
 
   (defun darken (color amount)
     (let* ((rgb (color-name-to-rgb color))
-           (rgb-darkened (mapcar (lambda (x) (* x amount)) rgb)))
+           (rgb-darkened (mapcar (lambda(x) (* x amount)) rgb)))
           (apply 'color-rgb-to-hex rgb-darkened)))
 
   (set-face-attribute 'auto-dim-other-buffers-face nil
@@ -228,22 +236,20 @@
     (interactive)
     (unless (company--active-p)
       (copilot-accept-completion)))
-
   (defun copilot-show-or-accept ()
     "Show or accept copilot suggestion."
     (interactive)
     (if (copilot--overlay-visible)
     (copilot-accept-completion)
     (copilot-complete)))
-  :init
-  (add-hook 'prog-mode-hook 'copilot-mode)
   :bind
+  ("C-c C-l C-l" . copilot-mode)
   (:map copilot-mode-map
-    ("C-c C-l C-l" . copilot-show-or-accept)
+    ("C-c C-l TAB" . copilot-show-or-accept)
     ("C-c C-l C-j" . copilot-previous-completion)
     ("C-c C-l C-k" . copilot-next-completion))
   (:map copilot-completion-map
-    ("TAB" . company-copilot-accept)))
+	("TAB" . company-copilot-accept)))
 
 (use-package evil-visualstar
   :config
@@ -271,9 +277,14 @@
   :config
   (add-hook 'graphql-mode-hook 'eglot-ensure))
 
-(require 'headphone)
 
-(recentf-mode 1)
+(use-package recentf
+  :ensure nil
+  :config
+  (recentf-mode 1)
+  :custom
+  (recentf-max-saved-items 25000)
+  (recentf-max-menu-items 25))
 
 (setq
   backup-directory-alist '(("." . "~/.emacs.saves"))
@@ -285,27 +296,69 @@
 
 (push (expand-file-name "~/.yarn/bin") exec-path)
 
-(add-hook 'prog-mode-hook 'flymake-mode)
 (set-face-attribute 'font-lock-comment-face nil :foreground "#8F8F8F")
 (set-face-attribute 'line-number nil :foreground "#777777")
-(setq eshell-history-size 25000)
-(setq eglot-events-buffer-size 0)
-(setq recentf-max-saved-items 25000)
-(setq recentf-max-menu-items 25)
 (setq indent-tabs-mode nil)
-
+(setq org-startup-indented t)
+(save-place-mode 1)
+(global-prettify-symbols-mode 1)
 (global-display-line-numbers-mode 1)
+(global-auto-revert-mode 1)
+(setq global-auto-revert-non-file-buffers 1)
+(column-number-mode t)
 (add-to-list 'auto-mode-alist '("\\.tsx?\\'" . typescript-ts-mode))
 
+(add-hook 'prog-mode-hook 'flymake-mode)
 (add-hook 'typescript-ts-mode-hook 'eglot-ensure)
 (add-hook 'typescript-ts-mode-hook 'flymake-eslint-enable)
 
 (bind-key "C-x C-b" #'ibuffer)
 (bind-key "C-x C-k" #'kill-current-buffer)
-(bind-key "C-x / e" #'eshell/new)
+(bind-key "C-x / p" #'yank-from-kill-ring)
 
-(require 'eglot)
-(add-to-list 'eglot-server-programs '(graphql-mode . ("graphql-lsp" "-m" "stream" "server")))
+(use-package eglot
+  :ensure nil
+  :custom
+  (eglot-confirm-server-initiated-edits nil)
+  (eglot-events-buffer-size 0)
+  :config
+  (defun setup-deno () (interactive)
+    (add-to-list 'eglot-server-programs '((js-mode typescript-mode) . (eglot-deno "deno" "lsp"))))
+
+  (defclass eglot-deno (eglot-lsp-server) ()
+    :documentation "A custom class for deno lsp.")
+
+  (cl-defmethod eglot-initialization-options ((server eglot-deno))
+    "Passes through required deno initialization options"
+    (list :enable t
+	  :lint t))
+
+  (add-to-list 'eglot-server-programs '(graphql-mode . ("graphql-lsp" "-m" "stream" "server")))
+  (add-to-list 'eglot-server-programs `((typescript-ts-mode typescript-mode) .
+				      ,(eglot-alternatives '(("typescript-language-server" "--stdio")
+							     ("deno" "lsp")))))
+  :bind
+  (:map eglot-mode-map ("C-c a" . eglot-code-actions)))
+
+(use-package eshell
+  :config
+  (defun eshell-append-history ()
+    "Call `eshell-write-history' with the `append' parameter set to `t'."
+    (when eshell-history-ring
+	(let ((newest-cmd-ring (make-ring 1)))
+	(ring-insert newest-cmd-ring (car (ring-elements eshell-history-ring)))
+	(let ((eshell-history-ring newest-cmd-ring))
+	    (eshell-write-history eshell-history-file-name t)))))
+  :custom
+  (eshell-save-history-on-exit nil)
+  (eshell-history-size 25000)
+
+  :hook
+  ;; Updates history after each command (instead of at exit).
+  (eshell-pre-command . eshell-append-history)
+  :bind
+  ("C-x / e" . eshell/new))
+
 
 (use-package prettier
   :hook
@@ -320,4 +373,33 @@
 	     :repo "emacsmirror/git-timemachine"
 	     :branch "master"))
 
+(use-package elf-mode)
+
+(defun xdg-open () (interactive)
+  (let ((file (buffer-file-name)))
+    (when file
+      (shell-command (concat "xdg-open " file)))))
+
+(defun +default/yank-buffer-path (&optional root)
+  "Copy the current buffer's path to the kill ring."
+  (interactive)
+  (if-let (filename (or (buffer-file-name (buffer-base-buffer))
+                        (bound-and-true-p list-buffers-directory)))
+      (let ((path (abbreviate-file-name
+                   (if root
+                       (file-relative-name filename root)
+                     filename))))
+        (kill-new path)
+        (if (string= path (car kill-ring))
+            (message "Copied path: %s" path)
+          (user-error "Couldn't copy filename in current buffer")))
+    (error "Couldn't find filename in current buffer")))
+
+;; So that language=typescript works in org mode
+(define-derived-mode typescript-mode typescript-ts-mode "typescript")
+
+(require 'headphone)
+(load-file "/home/tomk/.doom.d/private.el")
+
 ;;; init.el ends here
+
