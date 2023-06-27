@@ -1,3 +1,5 @@
+(provide 'cross-eval)
+
 (define-minor-mode cross-eval-mode
   "Minor mode for evaluating Lisp in another buffer."
   :lighter "cross-eval"

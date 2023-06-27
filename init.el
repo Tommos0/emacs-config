@@ -92,16 +92,16 @@
     (interactive)
     (eshell 'N))
 
-  (defun consult-ripgrep/here ()
+  (defun consult-ripgrep/here (start end)
     "ripgrep in default-directory"
-    (interactive)
-    (consult-ripgrep default-directory))
+    (interactive "r")
+    (consult-ripgrep default-directory (when (region-active-p) (buffer-substring-no-properties start end))))
 
-  (defun consult-ripgrep/project ()
+  (defun consult-ripgrep/project (start end)
     "ripgrep in project root"
-    (interactive)
+    (interactive "r")
     (when (project-current)
-      (consult-ripgrep (project-root (project-current)))))
+      (consult-ripgrep (project-root (project-current)) (when (region-active-p) (buffer-substring-no-properties start end)))))
 
   (defun consult-find/here ()
     "Find file by name in default-directory"
@@ -132,6 +132,8 @@
   (evil-define-key 'insert eshell-mode-map (kbd "TAB") 'company-complete)
   :bind
   (:map company-active-map
+    ("<return>" . nil)
+    ("RET" . nil)
     ("<tab>" . company-complete))
   (:map evil-insert-state-map
     ("C-SPC" . company-complete)))
@@ -322,21 +324,10 @@
   (eglot-confirm-server-initiated-edits nil)
   (eglot-events-buffer-size 0)
   :config
-  (defun setup-deno () (interactive)
-    (add-to-list 'eglot-server-programs '((js-mode typescript-mode) . (eglot-deno "deno" "lsp"))))
-
-  (defclass eglot-deno (eglot-lsp-server) ()
-    :documentation "A custom class for deno lsp.")
-
-  (cl-defmethod eglot-initialization-options ((server eglot-deno))
-    "Passes through required deno initialization options"
-    (list :enable t
-	  :lint t))
-
   (add-to-list 'eglot-server-programs '(graphql-mode . ("graphql-lsp" "-m" "stream" "server")))
   (add-to-list 'eglot-server-programs `((typescript-ts-mode typescript-mode) .
 				      ,(eglot-alternatives '(("typescript-language-server" "--stdio")
-							     ("deno" "lsp")))))
+							     ("deno" "lsp" :initializationOptions (:enable t :lint t))))))
   :bind
   (:map eglot-mode-map ("C-c a" . eglot-code-actions)))
 
@@ -399,7 +390,24 @@
 (define-derived-mode typescript-mode typescript-ts-mode "typescript")
 
 (require 'headphone)
+(require 'cross-eval)
+
 (load-file "/home/tomk/.doom.d/private.el")
+
+(set-face-attribute 'default nil :family "SourceCodeVS" :height 110)
+
+(use-package eglot-java
+  :custom
+  (eglot-java-eclipse-jdt-args '(
+    "-noverify"
+    "-Xmx1G"
+    "-XX:+UseG1GC"
+    "-XX:+UseStringDeduplication"
+    "-javaagent:/home/tomk/Downloads/lombok.jar"
+    "-Xbootclasspath/a:/home/tomk/Downloads/lombok.jar"))
+  :hook
+  (java-mode . eglot-java-mode))
 
 ;;; init.el ends here
 
+;(setq eglot-events-buffer-size 400000000)
