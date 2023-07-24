@@ -47,14 +47,21 @@
   :bind
   (:map evil-insert-state-map ("C-k" . nil))
   :config
+  ;; use evil normal mode in 'rcirc' mode
+  (evil-set-initial-state 'rcirc-mode 'normal)
+  ;; (evil-set-initial-state 'rcirc-mode 'emacs)
   (evil-mode 1))
-
-(use-package magit)
 
 (use-package evil-collection
   :after evil
   :config
   (evil-collection-init))
+
+(use-package magit
+  :custom
+  (magit-diff-refine-hunk t)
+  :config
+  (require 'magit-extras))
 
 (use-package vertico
   :init
@@ -74,7 +81,6 @@
   :init
   (savehist-mode))
 
-
 (use-package orderless
   :custom
   (completion-styles '(orderless basic))
@@ -92,16 +98,16 @@
     (interactive)
     (eshell 'N))
 
-  (defun consult-ripgrep/here (start end)
+  (defun consult-ripgrep/here ()
     "ripgrep in default-directory"
-    (interactive "r")
-    (consult-ripgrep default-directory (when (region-active-p) (buffer-substring-no-properties start end))))
+    (interactive)
+    (consult-ripgrep default-directory (when (use-region-p) (buffer-substring-no-properties (region-beginning) (region-end)))))
 
-  (defun consult-ripgrep/project (start end)
+  (defun consult-ripgrep/project ()
     "ripgrep in project root"
-    (interactive "r")
+    (interactive)
     (when (project-current)
-      (consult-ripgrep (project-root (project-current)) (when (region-active-p) (buffer-substring-no-properties start end)))))
+      (consult-ripgrep (project-root (project-current)) (when (use-region-p) (buffer-substring-no-properties (region-beginning) (region-end))))))
 
   (defun consult-find/here ()
     "Find file by name in default-directory"
@@ -179,6 +185,7 @@
 ;(load-theme 'modus-vivendi t)
 
 (use-package auto-dim-other-buffers
+  :after doom-themes
   :init
   (auto-dim-other-buffers-mode)
 
@@ -186,7 +193,7 @@
     (let* ((rgb (color-name-to-rgb color))
            (rgb-darkened (mapcar (lambda(x) (* x amount)) rgb)))
           (apply 'color-rgb-to-hex rgb-darkened)))
-
+  :config
   (set-face-attribute 'auto-dim-other-buffers-face nil
               :background (darken (face-attribute 'default :background) .7)))
 
@@ -306,6 +313,7 @@
 (global-prettify-symbols-mode 1)
 (global-display-line-numbers-mode 1)
 (global-auto-revert-mode 1)
+(setq auto-revert-verbose nil)
 (setq global-auto-revert-non-file-buffers 1)
 (column-number-mode t)
 (add-to-list 'auto-mode-alist '("\\.tsx?\\'" . typescript-ts-mode))
@@ -317,6 +325,7 @@
 (bind-key "C-x C-b" #'ibuffer)
 (bind-key "C-x C-k" #'kill-current-buffer)
 (bind-key "C-x / p" #'yank-from-kill-ring)
+(bind-key "M-p" #'yank-from-kill-ring)
 
 (use-package eglot
   :ensure nil
@@ -351,11 +360,26 @@
   ("C-x / e" . eshell/new))
 
 
-(use-package prettier
-  :hook
-  (typescript-ts-mode . prettier-mode)
-  (graphql-mode . prettier-mode)
-  (json-mode . prettier-mode))
+;; (use-package prettier
+;;   :hook
+;;   (typescript-ts-mode . prettier-mode)
+;;   (graphql-mode . prettier-mode)
+;;   (json-mode . prettier-mode))
+
+(use-package prettier-js
+   :hook
+   (typescript-ts-mode . prettier-js-mode)
+   (graphql-mode . prettier-js-mode)
+   (json-mode . prettier-js-mode)
+   (js-json-mode . prettier-js-mode))
+
+(use-package flymake
+  :ensure nil
+  :bind
+  (:map flymake-mode-map
+	("C-c ! l" . flymake-show-buffer-diagnostics)
+	("C-c ! p" . flymake-goto-prev-error)
+	("C-c ! n" . flymake-goto-next-error)))
 
 (use-package git-timemachine
   :straight (git-timemachine
@@ -371,7 +395,7 @@
     (when file
       (shell-command (concat "xdg-open " file)))))
 
-(defun +default/yank-buffer-path (&optional root)
+(defun yank-buffer-path (&optional root)
   "Copy the current buffer's path to the kill ring."
   (interactive)
   (if-let (filename (or (buffer-file-name (buffer-base-buffer))
@@ -386,15 +410,20 @@
           (user-error "Couldn't copy filename in current buffer")))
     (error "Couldn't find filename in current buffer")))
 
+(bind-key "C-x / y" #'yank-buffer-path)
+
 ;; So that language=typescript works in org mode
 (define-derived-mode typescript-mode typescript-ts-mode "typescript")
+(define-derived-mode json-mode json-ts-mode "json")
 
 (require 'headphone)
 (require 'cross-eval)
 
 (load-file "/home/tomk/.doom.d/private.el")
 
-(set-face-attribute 'default nil :family "SourceCodeVS" :height 110)
+;; font settings
+(set-face-attribute 'default nil :family "SourceCodeVS" :height 105)
+;(set-face-attribute 'default nil :family "SourceCodeVS" :height 140)
 
 (use-package eglot-java
   :custom
@@ -408,6 +437,72 @@
   :hook
   (java-mode . eglot-java-mode))
 
-;;; init.el ends here
+;(use-package eshell-git-prompt)
+(setenv "EDITOR" "emacsclient")
+(tool-bar-mode -1)
+(setq frame-resize-pixelwise t)
+(use-package rainbow-delimiters
+  :hook
+  (prog-mode . rainbow-delimiters-mode))
+
+(use-package sudo-edit)
+(use-package avy
+  :bind
+  ("C-a" . avy-goto-char-timer))
+
+(require 'ob-shell)
 
 ;(setq eglot-events-buffer-size 400000000)
+
+
+(use-package htmlize)
+;(use-package combobulate)
+
+;; (defun toggle-maximize-buffer () "Maximize buffer"
+;;   (interactive)
+;;   (if (= 1 (length (window-list)))
+;;       (jump-to-register '_)
+;;     (progn
+;;       (window-configuration-to-register '_)
+;;       (delete-other-windows))))
+
+
+(setq vc-follow-symlinks nil)
+(use-package string-inflection)
+
+(defvar project-start-command)
+
+(put 'project-start-command 'safe-local-variable
+     (lambda (x) t))
+
+(defun project-start ()
+  (interactive)
+  (when project-start-command
+    (let ((buffer-name (concat "Run *" (project-name (project-current)) "*")))
+      ;; if the buffer doesn't exist, run the command
+      (if (get-buffer buffer-name)
+	(switch-to-buffer buffer-name)
+	(let ((default-directory (project-root (project-current))))
+	  (async-shell-command project-start-command buffer-name))))))
+
+(defun my-reload-dir-locals-for-current-buffer ()
+  "reload dir locals for the current buffer"
+  (interactive)
+  (let ((enable-local-variables :all))
+    (hack-dir-local-variables-non-file-buffer)))
+
+(defun open-in-vscode ()
+  (interactive)
+  (let* ((file (buffer-file-name))
+         (line (number-to-string (line-number-at-pos)))
+         (col (number-to-string (+ 1 (current-column))))
+         (filestr (concat file ":" line ":" col)))
+    (start-process "code" nil "/usr/bin/code" "--goto" filestr)))
+
+(setq create-lockfiles nil)
+
+(use-package org-download)
+(use-package sly)
+(use-package lispyville)
+
+;;; init.el ends here
