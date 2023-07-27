@@ -15,6 +15,8 @@
 
 (provide 'init)
 
+(setq gc-cons-threshold (* 50 1000 1000))
+
 ;; add local lisp directory to load path
 (add-to-list 'load-path (expand-file-name "lisp" user-emacs-directory))
 
@@ -37,6 +39,9 @@
 (straight-use-package 'use-package)
 (setq straight-use-package-by-default t)
 (setq native-comp-async-report-warnings-errors nil)
+
+;; needs to be early to avoid loading built-in org mode by some other packages
+(use-package org)
 
 (use-package evil
   :custom
@@ -423,6 +428,7 @@
 
 ;; font settings
 (set-face-attribute 'default nil :family "SourceCodeVS" :height 105)
+;(set-face-attribute 'default nil :family "Fira Code" :height 105)
 ;(set-face-attribute 'default nil :family "SourceCodeVS" :height 140)
 
 (use-package eglot-java
@@ -504,5 +510,8 @@
 (use-package org-download)
 (use-package sly)
 (use-package lispyville)
+(use-package smartparens)
+(use-package dtrt-indent)
+(use-package org-roam)
 
 ;;; init.el ends here
