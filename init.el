@@ -20,6 +20,8 @@
 ;; add local lisp directory to load path
 (add-to-list 'load-path (expand-file-name "lisp" user-emacs-directory))
 
+(require 'private)
+
 (setq custom-file (locate-user-emacs-file "custom-vars.el"))
 (load custom-file)
 
@@ -67,6 +69,22 @@
   (magit-diff-refine-hunk t)
   :config
   (require 'magit-extras))
+
+(use-package forge
+  :after magit
+  :config
+  ;; Token is stored in 'auth-sources
+  (add-to-list 'forge-alist '("ahold" "api.github.com" "github.com" forge-github-repository)))
+
+(use-package all-the-icons
+  :if (display-graphic-p))
+
+(use-package all-the-icons-dired
+  :hook (dired-mode . all-the-icons-dired-mode))
+
+(use-package all-the-icons-completion
+  :hook
+  (marginalia-mode . all-the-icons-completion-marginalia-setup))
 
 (use-package vertico
   :init
@@ -321,11 +339,19 @@
 (setq auto-revert-verbose nil)
 (setq global-auto-revert-non-file-buffers 1)
 (column-number-mode t)
-(add-to-list 'auto-mode-alist '("\\.tsx?\\'" . typescript-ts-mode))
+(menu-bar-mode -1)
+(add-to-list 'auto-mode-alist '("\\.ts\\'" . typescript-ts-mode))
+(add-to-list 'auto-mode-alist '("\\.tsx\\'" . tsx-ts-mode))
+
+(defun flymake-eslint-enable--delayed ()
+  "Seems necessary to make flymake-eslint actually enable."
+  (run-at-time "0.01 sec" nil (lambda () (flymake-eslint-enable) (flymake-start))))
 
 (add-hook 'prog-mode-hook 'flymake-mode)
 (add-hook 'typescript-ts-mode-hook 'eglot-ensure)
-(add-hook 'typescript-ts-mode-hook 'flymake-eslint-enable)
+(add-hook 'typescript-ts-mode-hook 'flymake-eslint-enable--delayed)
+(add-hook 'tsx-ts-mode-hook 'eglot-ensure)
+(add-hook 'tsx-ts-mode-hook 'flymake-eslint-enable--delayed)
 
 (bind-key "C-x C-b" #'ibuffer)
 (bind-key "C-x C-k" #'kill-current-buffer)
@@ -374,9 +400,18 @@
 (use-package prettier-js
    :hook
    (typescript-ts-mode . prettier-js-mode)
+   (tsx-ts-mode . prettier-js-mode)
    (graphql-mode . prettier-js-mode)
    (json-mode . prettier-js-mode)
    (js-json-mode . prettier-js-mode))
+
+(defun prettier-js--post-ah-fix ()
+  (save-excursion
+    (beginning-of-buffer)
+    (while (string-match-p "^\\[prettier\\].*" (thing-at-point 'line t))
+        (kill-whole-line))))
+
+(advice-add 'prettier-js :after 'prettier-js--post-ah-fix)
 
 (use-package flymake
   :ensure nil
@@ -416,6 +451,8 @@
     (error "Couldn't find filename in current buffer")))
 
 (bind-key "C-x / y" #'yank-buffer-path)
+(defun dired-copy-file-path-as-kill () (interactive) (dired-copy-filename-as-kill 0))
+(bind-key "C-c C-y" #'dired-copy-file-path-as-kill 'dired-mode-map)
 
 ;; So that language=typescript works in org mode
 (define-derived-mode typescript-mode typescript-ts-mode "typescript")
@@ -491,6 +528,8 @@
 	(let ((default-directory (project-root (project-current))))
 	  (async-shell-command project-start-command buffer-name))))))
 
+(bind-key "<f5>" #'project-start)
+
 (defun my-reload-dir-locals-for-current-buffer ()
   "reload dir locals for the current buffer"
   (interactive)
@@ -513,5 +552,50 @@
 (use-package smartparens)
 (use-package dtrt-indent)
 (use-package org-roam)
+(use-package command-log-mode)
+(use-package docker
+  :bind
+  ("C-x d" . docker))
+
+(setenv "KUBECONFIG" "/home/tomk/.kube/ah.yaml")
+(use-package kubernetes)
+
+(use-package ob-mermaid
+  :custom
+  (ob-mermaid-cli-path "/home/tomk/.nvm/versions/node/v18.13.0/bin/mmdc")
+  :config
+  (org-babel-do-load-languages
+	'org-babel-load-languages
+	'((mermaid . t))))
+
+(defun clear-ahgraphql-turbo-cache () (interactive) (async-shell-command "rm -rf /home/tomk/git/ah/ah-graphql/node_modules/.cache/"))
+
+(defun insert-shell-command-as-comment (command)
+  (interactive)
+  (save-excursion
+    (end-of-line)
+    (let* ((output (shell-command-to-string command))
+	  (commented-string (concat "\n;; " (replace-regexp-in-string "\n" "\n;; " output))))
+      (insert commented-string))))
+
+(put 'dired-find-alternate-file 'disabled nil)
+
+(defvar org-auto-redisplay-after-eval t)
+(defun org-redisplay-when-auto-redisplay ()
+  "Redisplay when `org-auto-redisplay-after-eval' is non-nil."
+  (when org-auto-redisplay-after-eval
+    (org-redisplay-inline-images)))
+
+(advice-add 'org-babel-execute-src-block
+	    :after 'org-redisplay-when-auto-redisplay)
+
+(defun advice-unadvice (sym)
+  "Remove all advices from symbol SYM."
+  (interactive "aFunction symbol: ")
+  (advice-mapc (lambda (advice _props) (advice-remove sym advice)) sym))
+
+(setq-default indent-tabs-mode nil)
+
+(setq use-short-answers t)
 
 ;;; init.el ends here
