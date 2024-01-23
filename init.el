@@ -70,11 +70,11 @@
   :config
   (require 'magit-extras))
 
-(use-package forge
-  :after magit
-  :config
-  ;; Token is stored in 'auth-sources
-  (add-to-list 'forge-alist '("ahold" "api.github.com" "github.com" forge-github-repository)))
+;; (use-package forge
+;;   :after magit
+;;   :config
+;;   ;; Token is stored in 'auth-sources
+;;   (add-to-list 'forge-alist '("ahold" "api.github.com" "github.com" forge-github-repository)))
 
 (use-package all-the-icons
   :if (display-graphic-p))
@@ -342,6 +342,7 @@
 (menu-bar-mode -1)
 (add-to-list 'auto-mode-alist '("\\.ts\\'" . typescript-ts-mode))
 (add-to-list 'auto-mode-alist '("\\.tsx\\'" . tsx-ts-mode))
+;(add-to-list 'auto-mode-alist '("Dockerfile\\'" . dockerfile-ts-mode))
 
 (defun flymake-eslint-enable--delayed ()
   "Seems necessary to make flymake-eslint actually enable."
@@ -398,12 +399,16 @@
 ;;   (json-mode . prettier-mode))
 
 (use-package prettier-js
-   :hook
-   (typescript-ts-mode . prettier-js-mode)
-   (tsx-ts-mode . prettier-js-mode)
-   (graphql-mode . prettier-js-mode)
-   (json-mode . prettier-js-mode)
-   (js-json-mode . prettier-js-mode))
+  :hook
+  (typescript-ts-mode . prettier-js-mode)
+  (tsx-ts-mode . prettier-js-mode)
+  (graphql-mode . prettier-js-mode)
+  (json-mode . prettier-js-mode)
+  (js-json-mode . prettier-js-mode)
+  (css-mode . prettier-js-mode)
+  (scss-mode . prettier-js-mode)
+  (yaml-mode . prettier-js-mode)
+  (yaml-ts-mode . prettier-js-mode))
 
 (defun prettier-js--post-ah-fix ()
   (save-excursion
@@ -453,6 +458,14 @@
 (bind-key "C-x / y" #'yank-buffer-path)
 (defun dired-copy-file-path-as-kill () (interactive) (dired-copy-filename-as-kill 0))
 (bind-key "C-c C-y" #'dired-copy-file-path-as-kill 'dired-mode-map)
+(defun dired-find-marked-files ()
+       "Open each of the marked files"
+       (interactive)
+       (mapc 'find-file (dired-get-marked-files)))
+(bind-key "F" #'dired-find-marked-files 'dired-mode-map)
+(put 'dired-find-alternate-file 'disabled nil)
+(setq dired-dwim-target t)
+
 
 ;; So that language=typescript works in org mode
 (define-derived-mode typescript-mode typescript-ts-mode "typescript")
@@ -464,9 +477,12 @@
 (load-file "/home/tomk/.doom.d/private.el")
 
 ;; font settings
-(set-face-attribute 'default nil :family "SourceCodeVS" :height 105)
+;(set-face-attribute 'default nil :family "SourceCodeVS" :height 105)
+(set-face-attribute 'default nil :family "Liberation Mono" :height 96)
 ;(set-face-attribute 'default nil :family "Fira Code" :height 105)
+;(set-face-attribute 'default nil :family "Hack" :height 105)
 ;(set-face-attribute 'default nil :family "SourceCodeVS" :height 140)
+(setq-default line-spacing 4)
 
 (use-package eglot-java
   :custom
@@ -549,7 +565,9 @@
 (use-package org-download)
 (use-package sly)
 (use-package lispyville)
-(use-package smartparens)
+(use-package smartparens
+  :config
+  (smartparens-global-mode t))
 (use-package dtrt-indent)
 (use-package org-roam)
 (use-package command-log-mode)
@@ -578,16 +596,15 @@
 	  (commented-string (concat "\n;; " (replace-regexp-in-string "\n" "\n;; " output))))
       (insert commented-string))))
 
-(put 'dired-find-alternate-file 'disabled nil)
 
-(defvar org-auto-redisplay-after-eval t)
-(defun org-redisplay-when-auto-redisplay ()
-  "Redisplay when `org-auto-redisplay-after-eval' is non-nil."
-  (when org-auto-redisplay-after-eval
-    (org-redisplay-inline-images)))
+;; (defvar org-auto-redisplay-after-eval t)
+;; (defun org-redisplay-when-auto-redisplay ()
+;;   "Redisplay when `org-auto-redisplay-after-eval' is non-nil."
+;;   (when org-auto-redisplay-after-eval
+;;     (org-redisplay-inline-images)))
 
-(advice-add 'org-babel-execute-src-block
-	    :after 'org-redisplay-when-auto-redisplay)
+;; (advice-add 'org-babel-execute-src-block
+;; 	    :after 'org-redisplay-when-auto-redisplay)
 
 (defun advice-unadvice (sym)
   "Remove all advices from symbol SYM."
@@ -597,5 +614,48 @@
 (setq-default indent-tabs-mode nil)
 
 (setq use-short-answers t)
+
+(require 'org-protocol)
+
+(use-package dumb-jump)
+
+(bind-key "C-\\" #'universal-argument)
+
+  (setq org-capture-templates
+	'(
+          ;; many more capture templates
+	  ("b" "Bookmark" entry (file+headline "~/git/ah/bookmarks.org" "Bookmarks")
+	   "* %?\n:PROPERTIES:\n:CREATED: %U\n:END:\n\n" :empty-lines 1)
+          ;; many more capture templates
+	  )
+	)
+
+;; (org-babel-do-load-languages
+;;  'org-babel-load-languages
+;;  '((sql . t)))
+
+(use-package ob-sql-mode)
+(require 'ob-sql-mode)
+
+(use-package elmacro)
+
+(use-package evil-cleverparens
+  :hook
+  (emacs-lisp-mode . evil-cleverparens-mode))
+
+(use-package pymacs
+  :config
+  (defun pymacs--first-time-setup ()
+    "First time Pymacs setup.
+     Setup venv + copy python file to python load path."
+    (interactive)
+    (call-process-shell-command "python -m venv ~/pymacs")
+    (let ((python-pkg-dir (expand-file-name (car (file-expand-wildcards "~/pymacs/lib/python*/site-packages")))))
+      (copy-file (expand-file-name "straight/repos/Pymacs/Pymacs.py" user-emacs-directory)
+                 (expand-file-name "Pymacs.py" python-pkg-dir))))
+  :custom
+  (pymacs-python-command (expand-file-name "~/pymacs/bin/python")))
+
+(put 'narrow-to-region 'disabled nil)
 
 ;;; init.el ends here
