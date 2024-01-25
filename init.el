@@ -86,6 +86,8 @@
   :hook
   (marginalia-mode . all-the-icons-completion-marginalia-setup))
 
+(use-package nerd-icons)
+
 (use-package vertico
   :init
   (vertico-mode)
@@ -188,6 +190,8 @@
     "Create a new vterm buffer."
     (interactive)
     (vterm 'N))
+  :custom
+  (vterm-buffer-name-string "vterm %s")
   :bind
   ("C-x / t" . vterm/new))
 
@@ -195,20 +199,24 @@
   :config
   (doom-modeline-mode 1))
 
-(use-package doom-themes
-  :ensure t
-  :custom
-  (doom-themes-enable-bold t)
-  (doom-themes-enable-italic t)
-  :config
-  (load-theme 'doom-one t)
-  (doom-themes-visual-bell-config)
-  (doom-themes-org-config))
+;; (use-package doom-themes
+;;   :ensure t
+;;   :custom
+;;   (doom-themes-enable-bold t)
+;;   (doom-themes-enable-italic t)
+;;   :config
+;;   (load-theme 'doom-one t)
+;;   (doom-themes-visual-bell-config)
+;;   (doom-themes-org-config))
 
 ;(load-theme 'modus-vivendi t)
+(use-package gruvbox-theme
+  :config
+  (load-theme 'gruvbox-dark-medium t))
 
 (use-package auto-dim-other-buffers
-  :after doom-themes
+  ;:after doom-themes
+  :after gruvbox-theme
   :init
   (auto-dim-other-buffers-mode)
 
@@ -218,7 +226,7 @@
           (apply 'color-rgb-to-hex rgb-darkened)))
   :config
   (set-face-attribute 'auto-dim-other-buffers-face nil
-              :background (darken (face-attribute 'default :background) .7)))
+              :background (darken (face-attribute 'default :background) .6)))
 
 (use-package markdown-mode)
 (use-package embark-consult)
@@ -411,10 +419,13 @@
   (yaml-ts-mode . prettier-js-mode))
 
 (defun prettier-js--post-ah-fix ()
+  "Deletes all line starting with [prettier] on the top of the file.
+They are added by some console.logs in ah-lint-config"
   (save-excursion
     (beginning-of-buffer)
     (while (string-match-p "^\\[prettier\\].*" (thing-at-point 'line t))
-        (kill-whole-line))))
+      ;; kill-whole-line would add to kill-ring so we use delete-region
+      (delete-region (line-beginning-position) (1+ (line-end-position))))))
 
 (advice-add 'prettier-js :after 'prettier-js--post-ah-fix)
 
@@ -658,4 +669,30 @@
 
 (put 'narrow-to-region 'disabled nil)
 
+(use-package evil-surround
+  :custom
+  (global-evil-surround-mode t))
+
+(setq eshell-ls-initial-args '("-larth"))
+(defalias 'l 'eshell/ls)
+
+(defun restart-emacs--systemctl () (interactive) (async-shell-command "systemctl --user restart emacs"))
+
+(setq rc-default-nick "Tommos0")
+
+(use-package rcirc
+  :custom
+  (rcirc-server-alist '(("irc.libera.chat"
+                        :channels ("#emacs")
+                        :port 6697 :encryption tls))))
+
+;; (use-package eat
+;;   :custom
+;;   (eat--terminfo-path (expand-file-name "straight/repos/eat/terminfo" user-emacs-directory))
+;;   (eat-term-terminfo-directory eat--terminfo-path)
+;;   (eat--shell-integration-path (expand-file-name "straight/repos/eat/integration" user-emacs-directory))
+;;   (eat-term-shell-integration-directory (expand-file-name "straight/repos/eat/integration" user-emacs-directory)))
+
+
 ;;; init.el ends here
+
