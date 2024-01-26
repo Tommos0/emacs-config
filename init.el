@@ -54,6 +54,14 @@
   :bind
   (:map evil-insert-state-map ("C-k" . nil))
   :config
+  (defun evil-jump-backward-same-file (&optional count) (interactive)
+         (let ((evil-jumps-cross-buffers nil))
+           (evil-jump-backward count)))
+  (defun evil-jump-forward-same-file (&optional count) (interactive)
+         (let ((evil-jumps-cross-buffers nil))
+           (evil-jump-forward count)))
+  (evil-define-key 'normal 'global (kbd "C-S-o") 'evil-jump-backward-same-file)
+  (evil-define-key 'normal 'global (kbd "C-S-i") 'evil-jump-forward-same-file)
   ;; use evil normal mode in 'rcirc' mode
   (evil-set-initial-state 'rcirc-mode 'normal)
   ;; (evil-set-initial-state 'rcirc-mode 'emacs)
@@ -159,6 +167,8 @@
   (global-company-mode)
   :hook
   (eshell-mode . (lambda () (setq-local company-backends '(company-capf))))
+  :custom
+  (company-search-filtering t)
   :config
   (evil-define-key 'insert eshell-mode-map (kbd "TAB") 'company-complete)
   :bind
@@ -195,9 +205,23 @@
   :bind
   ("C-x / t" . vterm/new))
 
-(use-package doom-modeline
+
+(use-package minions
   :config
-  (doom-modeline-mode 1))
+  (minions-mode)
+  :custom
+  (minions-prominent-modes '(flymake-mode)))
+
+;; (use-package mood-line
+;;   :config
+;;   (mood-line-mode))
+
+;; [(use-package moody)]
+
+;; (use-package doom-modeline
+;;   :config
+;;   (doom-modeline-mode 1))
+
 
 ;; (use-package doom-themes
 ;;   :ensure t
@@ -211,6 +235,8 @@
 
 ;(load-theme 'modus-vivendi t)
 (use-package gruvbox-theme
+  :custom-face
+  (highlight ((t (:background "#4e463f"))))
   :config
   (load-theme 'gruvbox-dark-medium t))
 
@@ -678,13 +704,18 @@ They are added by some console.logs in ah-lint-config"
 
 (defun restart-emacs--systemctl () (interactive) (async-shell-command "systemctl --user restart emacs"))
 
-(setq rc-default-nick "Tommos0")
-
 (use-package rcirc
   :custom
+  (rcirc-ddefault-nick "Tommos0")
   (rcirc-server-alist '(("irc.libera.chat"
                         :channels ("#emacs")
                         :port 6697 :encryption tls))))
+
+(use-package yascroll
+  :custom
+  (yascroll:delay-to-hide nil)
+  (global-yascroll-bar-mode t)
+  (scroll-bar-mode nil))
 
 ;; (use-package eat
 ;;   :custom
@@ -695,4 +726,3 @@ They are added by some console.logs in ah-lint-config"
 
 
 ;;; init.el ends here
-
