@@ -15,7 +15,12 @@
 
 (provide 'init)
 
-(setq gc-cons-threshold (* 50 1000 1000))
+;; 1GB
+(setq gc-cons-threshold (* 1024 1024 1024))
+
+(add-function :after
+              after-focus-change-function
+              (lambda () (unless (frame-focus-state) (garbage-collect))))
 
 ;; add local lisp directory to load path
 (add-to-list 'load-path (expand-file-name "lisp" user-emacs-directory))
@@ -237,22 +242,22 @@
 (use-package gruvbox-theme
   :custom-face
   (highlight ((t (:background "#4e463f"))))
-  :config
+  :init
   (load-theme 'gruvbox-dark-medium t))
 
 (use-package auto-dim-other-buffers
   ;:after doom-themes
   :after gruvbox-theme
   :init
-  (auto-dim-other-buffers-mode)
-
   (defun darken (color amount)
     (let* ((rgb (color-name-to-rgb color))
            (rgb-darkened (mapcar (lambda(x) (* x amount)) rgb)))
           (apply 'color-rgb-to-hex rgb-darkened)))
-  :config
-  (set-face-attribute 'auto-dim-other-buffers-face nil
-              :background (darken (face-attribute 'default :background) .6)))
+  (auto-dim-other-buffers-mode)
+  (run-with-timer 2 nil
+                  (lambda ()
+                    (set-face-attribute 'auto-dim-other-buffers-face nil
+                                        :background (darken (face-attribute 'default :background) .6)))))
 
 (use-package markdown-mode)
 (use-package embark-consult)
@@ -339,10 +344,7 @@
   :config
   (bash-completion-setup))
 
-(use-package graphql-mode
-  :config
-  (add-hook 'graphql-mode-hook 'eglot-ensure))
-
+(use-package graphql-mode)
 
 (use-package recentf
   :ensure nil
@@ -383,9 +385,7 @@
   (run-at-time "0.01 sec" nil (lambda () (flymake-eslint-enable) (flymake-start))))
 
 (add-hook 'prog-mode-hook 'flymake-mode)
-(add-hook 'typescript-ts-mode-hook 'eglot-ensure)
 (add-hook 'typescript-ts-mode-hook 'flymake-eslint-enable--delayed)
-(add-hook 'tsx-ts-mode-hook 'eglot-ensure)
 (add-hook 'tsx-ts-mode-hook 'flymake-eslint-enable--delayed)
 
 (bind-key "C-x C-b" #'ibuffer)
@@ -400,11 +400,17 @@
   (eglot-events-buffer-size 0)
   :config
   (add-to-list 'eglot-server-programs '(graphql-mode . ("graphql-lsp" "-m" "stream" "server")))
-  (add-to-list 'eglot-server-programs `((typescript-ts-mode typescript-mode) .
-				      ,(eglot-alternatives '(("typescript-language-server" "--stdio")
-							     ("deno" "lsp" :initializationOptions (:enable t :lint t))))))
+  (add-to-list 'eglot-server-programs
+               `((typescript-ts-mode typescript-mode) .
+                 ,(eglot-alternatives '(("typescript-language-server" "--stdio")
+                                        ("deno" "lsp" :initializationOptions (:enable t :lint t))))))
   :bind
-  (:map eglot-mode-map ("C-c a" . eglot-code-actions)))
+  (:map eglot-mode-map ("C-c a" . eglot-code-actions))
+  :hook
+  (tsx-ts-mode . eglot-ensure)
+  (typescript-ts-mode . eglot-ensure)
+  (random-ts-mode . eglot-ensure)
+  (graphql-mode . eglot-ensure))
 
 (use-package eshell
   :config
@@ -518,7 +524,7 @@ They are added by some console.logs in ah-lint-config"
 (set-face-attribute 'default nil :family "Liberation Mono" :height 96)
 ;(set-face-attribute 'default nil :family "Fira Code" :height 105)
 ;(set-face-attribute 'default nil :family "Hack" :height 105)
-;(set-face-attribute 'default nil :family "SourceCodeVS" :height 140)
+;(set-face-attribute 'default nil :family "DejaVu Mono" :height 105)
 (setq-default line-spacing 4)
 
 (use-package eglot-java
@@ -646,7 +652,8 @@ They are added by some console.logs in ah-lint-config"
 (defun advice-unadvice (sym)
   "Remove all advices from symbol SYM."
   (interactive "aFunction symbol: ")
-  (advice-mapc (lambda (advice _props) (advice-remove sym advice)) sym))
+  (advice-mapc (lambda (advice _props) (advice-remove sym advice))
+               sym))
 
 (setq-default indent-tabs-mode nil)
 
@@ -658,14 +665,13 @@ They are added by some console.logs in ah-lint-config"
 
 (bind-key "C-\\" #'universal-argument)
 
-  (setq org-capture-templates
-	'(
-          ;; many more capture templates
-	  ("b" "Bookmark" entry (file+headline "~/git/ah/bookmarks.org" "Bookmarks")
-	   "* %?\n:PROPERTIES:\n:CREATED: %U\n:END:\n\n" :empty-lines 1)
-          ;; many more capture templates
-	  )
-	)
+(setq org-capture-templates
+      '(("b"
+         "Bookmark"
+         entry
+         (file+headline "~/git/ah/bookmarks.org" "Bookmarks")
+         "* %?\n:PROPERTIES:\n:CREATED: %U\n:END:\n\n"
+         :empty-lines 1)))
 
 ;; (org-babel-do-load-languages
 ;;  'org-babel-load-languages
@@ -711,11 +717,15 @@ They are added by some console.logs in ah-lint-config"
                         :channels ("#emacs")
                         :port 6697 :encryption tls))))
 
-(use-package yascroll
-  :custom
-  (yascroll:delay-to-hide nil)
-  (global-yascroll-bar-mode t)
-  (scroll-bar-mode nil))
+;; (use-package yascroll
+;;   :custom
+;;   (yascroll:delay-to-hide nil)
+;;   (global-yascroll-bar-mode t)
+;;   (scroll-bar-mode nil))
+
+(use-package auto-highlight-symbol
+  :hook
+  (emacs-lisp-mode . auto-highlight-symbol-mode))
 
 ;; (use-package eat
 ;;   :custom
