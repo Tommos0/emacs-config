@@ -92,16 +92,17 @@
 (use-package all-the-icons
   :if (display-graphic-p))
 
-(use-package all-the-icons-dired
-  :hook (dired-mode . all-the-icons-dired-mode))
+;; (use-package all-the-icons-dired
+;;   :hook (dired-mode . all-the-icons-dired-mode))
 
-(use-package all-the-icons-completion
-  :hook
-  (marginalia-mode . all-the-icons-completion-marginalia-setup))
+;; (use-package all-the-icons-completion
+;;   :hook
+;;   (marginalia-mode . all-the-icons-completion-marginalia-setup))
 
-(use-package nerd-icons)
+;; (use-package nerd-icons)
 
 (use-package vertico
+	:after (evil)
   :init
   (vertico-mode)
   :custom
@@ -111,8 +112,12 @@
   (:map vertico-map
     ("C-j" . 'vertico-next)
     ("C-k" . 'vertico-previous)
-    ("C-S-K" . 'vertico-scroll-down)
-    ("C-S-J" . 'vertico-scroll-up)))
+    ("C-n" . 'vertico-scroll-up)
+    ("C-p" . 'vertico-scroll-down)
+    ("C-u" . 'vertico-scroll-down)
+    ("C-d" . 'vertico-scroll-up)
+    ("C-S-k" . 'vertico-scroll-down)
+    ("C-S-j" . 'vertico-scroll-up)))
 
 ;; Persist history over Emacs restarts. Vertico sorts by history position.
 (use-package savehist
@@ -178,11 +183,13 @@
   (evil-define-key 'insert eshell-mode-map (kbd "TAB") 'company-complete)
   :bind
   (:map company-active-map
-    ("<return>" . nil)
-    ("RET" . nil)
-    ("<tab>" . company-complete))
+				("<return>" . nil)
+				("RET" . nil)
+				("<tab>" . company-complete)
+				("TAB" . company-complete))
   (:map evil-insert-state-map
-    ("C-SPC" . company-complete)))
+				("C-SPC" . company-complete)
+				("C-@" . company-complete)))
 
 (use-package helpful
   :bind
@@ -197,6 +204,8 @@
   :bind
   (("C-." . embark-act)
    ("C-;" . embark-act)
+   ("M-." . embark-act)
+   ("C-M-\\" . embark-act)
    ("C-h B" . embark-bindings)))
 
 (use-package vterm
@@ -204,11 +213,20 @@
   (defun vterm/new ()
     "Create a new vterm buffer."
     (interactive)
-    (vterm 'N))
+		(vterm 'N))
+  (defun vterm/project ()
+    "Create a new vterm buffer in project root."
+    (interactive)
+		(let ((default-directory (project-root (project-current))))
+			(vterm 'N)))
   :custom
   (vterm-buffer-name-string "vterm %s")
+  :config
+  (push '(vterm/project "VTerm") project-switch-commands)
   :bind
-  ("C-x / t" . vterm/new))
+  ("C-x / t" . vterm/new)
+  (:map
+    project-prefix-map ("t" . vterm/project)))
 
 
 (use-package minions
@@ -242,6 +260,11 @@
 (use-package gruvbox-theme
   :custom-face
   (highlight ((t (:background "#4e463f"))))
+  (error ((t (:underline t))))
+  (warning ((t (:underline t))))
+  (font-lock-warning-face ((t (:underline t))))
+	(font-lock-keyword-face ((t (:foreground "#cc49ee"))))
+	(match ((t (:background "darkorange"))))
   :init
   (load-theme 'gruvbox-dark-medium t))
 
@@ -359,10 +382,10 @@
   version-control t)
 
 (push (expand-file-name "~/.yarn/bin") exec-path)
+(push (expand-file-name "~/.local/bin") exec-path)
 
 (set-face-attribute 'font-lock-comment-face nil :foreground "#8F8F8F")
 (set-face-attribute 'line-number nil :foreground "#777777")
-(setq indent-tabs-mode nil)
 (setq org-startup-indented t)
 (save-place-mode 1)
 (global-prettify-symbols-mode 1)
@@ -374,6 +397,8 @@
 (menu-bar-mode -1)
 (add-to-list 'auto-mode-alist '("\\.ts\\'" . typescript-ts-mode))
 (add-to-list 'auto-mode-alist '("\\.tsx\\'" . tsx-ts-mode))
+(add-to-list 'auto-mode-alist '("\\.json\\'" . json-ts-mode))
+(add-to-list 'auto-mode-alist '("\\.py\\'" . python-ts-mode))
 ;(add-to-list 'auto-mode-alist '("Dockerfile\\'" . dockerfile-ts-mode))
 
 (defun flymake-eslint-enable--delayed ()
@@ -390,6 +415,7 @@
 (bind-key "M-p" #'yank-from-kill-ring)
 
 (use-package eglot
+	:straight nil
   :ensure nil
   :custom
   (eglot-confirm-server-initiated-edits nil)
@@ -441,6 +467,7 @@
   (graphql-mode . prettier-js-mode)
   (json-mode . prettier-js-mode)
   (js-json-mode . prettier-js-mode)
+  (json-ts-mode . prettier-js-mode)
   (css-mode . prettier-js-mode)
   (scss-mode . prettier-js-mode)
   (yaml-mode . prettier-js-mode)
@@ -466,11 +493,11 @@ They are added by some console.logs in ah-lint-config"
 	("C-c ! n" . flymake-goto-next-error)))
 
 (use-package git-timemachine
-  :straight (git-timemachine
-	     :type git
-	     :host github
-	     :repo "emacsmirror/git-timemachine"
-	     :branch "master"))
+	:straight (git-timemachine
+						 :type git
+						 :host github
+						 :repo "emacsmirror/git-timemachine"
+						 :branch "master"))
 
 (use-package elf-mode)
 
@@ -680,7 +707,10 @@ They are added by some console.logs in ah-lint-config"
 
 (use-package evil-cleverparens
   :hook
-  (emacs-lisp-mode . evil-cleverparens-mode))
+  (emacs-lisp-mode . evil-cleverparens-mode)
+	:config
+	;; fixes mess created by alt-tabbing to KITTY window (insert M-[ key somehow).
+	(evil-define-key 'normal evil-cleverparens-mode-map (kbd "M-[") nil))
 
 (use-package pymacs
   :config
@@ -719,9 +749,22 @@ They are added by some console.logs in ah-lint-config"
 ;;   (global-yascroll-bar-mode t)
 ;;   (scroll-bar-mode nil))
 
+(use-package yasnippet
+	:config
+	(defun my/capitalize-first-char (&optional string)
+		"Capitalize only the first character of the input STRING."
+		(when (and string (> (length string) 0))
+			(let ((first-char (substring string nil 1))
+						(rest-str   (substring string 1)))
+				(concat (capitalize first-char) rest-str))))
+	(yas-global-mode t))
+
 (use-package auto-highlight-symbol
   :hook
   (emacs-lisp-mode . auto-highlight-symbol-mode))
+
+(setq visible-bell 1)
+(setq-default tab-width 2)
 
 ;; (use-package eat
 ;;   :custom
@@ -732,6 +775,14 @@ They are added by some console.logs in ah-lint-config"
 
 (setq-default tab-width 2)
 
+(defun my/auto-format ()
+  (interactive)
+  (when default-directory
+    (set-process-sentinel
+     (start-process "prettier" "prettier" "yarn" "prettier" "-w" (buffer-file-name))
+     (lambda (p _)
+       (when (= 0 (process-exit-status p))
+         (start-process "eslint-fix" "eslint" "yarn" "eslint" "--fix" (buffer-file-name)))))))
 
 (setq-default css-indent-offset 2)
 ;; This means it will use the control master options from =~/.ssh/config=.
@@ -740,6 +791,24 @@ They are added by some console.logs in ah-lint-config"
 (use-package diff-hl
   :config
   (global-diff-hl-mode t))
+(use-package evil-terminal-cursor-changer
+	:config
+	(evil-terminal-cursor-changer-activate))
+
+(use-package clipetty
+	:config
+	(global-clipetty-mode))
+
+(use-package direnv
+ :config
+ (direnv-mode))
+
+(custom-set-faces
+    '(error ((t (:underline t)))))
 
 (setq vterm-shell "/bin/bash")
+(use-package makefile-executor)
+(use-package ansi-color
+    :hook (compilation-filter . ansi-color-compilation-filter))
+
 ;;; init.el ends here
