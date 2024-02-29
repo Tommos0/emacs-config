@@ -266,10 +266,6 @@
 (use-package flymake-eslint)
 (use-package elfeed)
 
-(use-package git-gutter
-  :custom
-  (global-git-gutter-mode t))
-
 (use-package nvm-switch
   :straight (nvm-switch
 	     :type git
@@ -655,7 +651,7 @@ They are added by some console.logs in ah-lint-config"
   (advice-mapc (lambda (advice _props) (advice-remove sym advice))
                sym))
 
-(setq-default indent-tabs-mode nil)
+;(setq-default indent-tabs-mode nil)
 
 (setq use-short-answers t)
 
@@ -734,5 +730,16 @@ They are added by some console.logs in ah-lint-config"
 ;;   (eat--shell-integration-path (expand-file-name "straight/repos/eat/integration" user-emacs-directory))
 ;;   (eat-term-shell-integration-directory (expand-file-name "straight/repos/eat/integration" user-emacs-directory)))
 
+(setq-default tab-width 2)
 
+
+(setq-default css-indent-offset 2)
+;; This means it will use the control master options from =~/.ssh/config=.
+(customize-set-variable 'tramp-use-ssh-controlmaster-options nil)
+
+(use-package diff-hl
+  :config
+  (global-diff-hl-mode t))
+
+(setq vterm-shell "/bin/bash")
 ;;; init.el ends here
