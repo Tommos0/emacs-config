@@ -50,9 +50,11 @@
 ;; needs to be early to avoid loading built-in org mode by some other packages
 (use-package org)
 
+
 (use-package evil
   :custom
   (evil-want-C-u-scroll t)
+  (evil-want-C-u-delete t)
   (evil-want-minibuffer t)
   (evil-want-keybinding nil)
   (evil-undo-system 'undo-redo)
@@ -110,17 +112,18 @@
   (vertico-cycle t)
   :bind
   (:map vertico-map
-    ("C-j" . 'vertico-next)
-    ("C-k" . 'vertico-previous)
-    ("C-n" . 'vertico-scroll-up)
-    ("C-p" . 'vertico-scroll-down)
-    ("C-u" . 'vertico-scroll-down)
-    ("C-d" . 'vertico-scroll-up)
-    ("C-S-k" . 'vertico-scroll-down)
-    ("C-S-j" . 'vertico-scroll-up)))
+				("C-j" . 'vertico-next)
+				("C-k" . 'vertico-previous)
+				("C-n" . 'vertico-scroll-up)
+				("C-p" . 'vertico-scroll-down)
+				("C-u" . 'vertico-scroll-down)
+				("C-d" . 'vertico-scroll-up)
+				("C-S-k" . 'vertico-scroll-down)
+				("C-S-j" . 'vertico-scroll-up)))
 
 ;; Persist history over Emacs restarts. Vertico sorts by history position.
 (use-package savehist
+	:straight nil
   :init
   (savehist-mode))
 
@@ -157,8 +160,17 @@
     (interactive)
     (consult-find default-directory))
 
+	(defun consult-completion-at-point ()
+		"completion-at-point with consult"
+		(interactive)
+		(let ((completion-in-region-function #'consult-completion-in-region))
+			(completion-at-point)))
+
   :config
   (evil-define-key 'insert eshell-mode-map (kbd "C-r") 'consult-history)
+  (evil-define-key 'insert minibuffer-mode-map (kbd "C-r") 'consult-history)
+  (setq xref-show-xrefs-function #'consult-xref)
+  (setq xref-show-definitions-function #'consult-xref)
 
   :bind
   ("C-x / /" . consult-ripgrep/here)
@@ -172,24 +184,73 @@
   :init
   (which-key-mode))
 
-(use-package company
-  :init
-  (global-company-mode)
-  :hook
-  (eshell-mode . (lambda () (setq-local company-backends '(company-capf))))
+;; (use-package company
+;;   :init
+;;   (global-company-mode)
+;;   :hook
+;;   (eshell-mode . (lambda () (setq-local company-backends '(company-capf))))
+;;   :custom
+;;   (company-search-filtering t)
+;;   :config
+;;   (evil-define-key 'insert eshell-mode-map (kbd "TAB") 'company-complete)
+;;   :bind
+;;   (:map company-active-map
+;; 				("<return>" . nil)
+;; 				("RET" . nil)
+;; 				("<tab>" . company-complete)
+;; 				("TAB" . company-complete))
+;;   (:map evil-insert-state-map
+;; 				("C-SPC" . company-complete)
+;; 				("C-@" . company-complete)))
+
+;; (use-package company-box
+;;   :hook (company-mode . company-box-mode))
+
+;; (use-package copilot
+;;   :straight (copilot
+;; 						 :type git
+;; 						 :host github
+;; 						 :repo "zerolfx/copilot.el"
+;; 						 :files ("dist" "*.el"))
+;;   :after (company)
+;;   :config
+;;   (defun company-copilot-accept ()
+;;     "Accept copilot suggestion if company is not active."
+;;     (interactive)
+;;     (unless (company--active-p)
+;;       (copilot-accept-completion)))
+;;   (defun copilot-show-or-accept ()
+;;     "Show or accept copilot suggestion."
+;;     (interactive)
+;;     (if (copilot--overlay-visible)
+;; 				(copilot-accept-completion)
+;; 			(copilot-complete)))
+;;   :bind
+;;   ("C-c C-l C-l" . copilot-mode)
+;;   (:map copilot-mode-map
+;; 				("C-c C-l TAB" . copilot-show-or-accept)
+;; 				("C-c C-l C-j" . copilot-previous-completion)
+;; 				("C-c C-l C-k" . copilot-next-completion))
+;;   (:map copilot-completion-map
+;; 				("TAB" . company-copilot-accept)))
+
+(use-package corfu
   :custom
-  (company-search-filtering t)
+  (global-company-mode nil)
+  (global-corfu-mode t)
+  (corfu-auto t)
   :config
-  (evil-define-key 'insert eshell-mode-map (kbd "TAB") 'company-complete)
+  (when (display-graphic-p)
+    (setq corfu-popupinfo-mode t
+          corfu-popupinfo-delay 0.5))
+  (evil-define-key 'insert eshell-mode-map (kbd "TAB") 'completion-at-point)
   :bind
-  (:map company-active-map
-				("<return>" . nil)
-				("RET" . nil)
-				("<tab>" . company-complete)
-				("TAB" . company-complete))
-  (:map evil-insert-state-map
-				("C-SPC" . company-complete)
-				("C-@" . company-complete)))
+  (:map corfu-map ("C-s" . consult-completion-at-point)))
+
+(use-package corfu-terminal
+  :config
+  (unless (display-graphic-p)
+    (corfu-terminal-mode t)))
 
 (use-package helpful
   :bind
@@ -199,14 +260,13 @@
   ("C-h x" . helpful-command)
   ("C-h o" . helpful-symbol))
 
-
 (use-package embark
   :bind
-  (("C-." . embark-act)
-   ("C-;" . embark-act)
-   ("M-." . embark-act)
+  (("C-."    . embark-act)
+   ("C-;"    . embark-act)
+   ("M-."    . embark-act)
    ("C-M-\\" . embark-act)
-   ("C-h B" . embark-bindings)))
+   ("C-h B"  . embark-bindings)))
 
 (use-package vterm
   :init
@@ -226,8 +286,7 @@
   :bind
   ("C-x / t" . vterm/new)
   (:map
-    project-prefix-map ("t" . vterm/project)))
-
+   project-prefix-map ("t" . vterm/project)))
 
 (use-package minions
   :config
@@ -239,7 +298,7 @@
 ;;   :config
 ;;   (mood-line-mode))
 
-;; [(use-package moody)]
+;; (use-package moody)
 
 ;; (use-package doom-modeline
 ;;   :config
@@ -256,7 +315,8 @@
 ;;   (doom-themes-visual-bell-config)
 ;;   (doom-themes-org-config))
 
-;(load-theme 'modus-vivendi t)
+;;(load-theme 'modus-vivendi t)
+
 (use-package gruvbox-theme
   :custom-face
   (highlight ((t (:background "#4e463f"))))
@@ -269,13 +329,13 @@
   (load-theme 'gruvbox-dark-medium t))
 
 (use-package auto-dim-other-buffers
-  ;:after doom-themes
+																				;:after doom-themes
   :after gruvbox-theme
   :init
   (defun darken (color amount)
     (let* ((rgb (color-name-to-rgb color))
            (rgb-darkened (mapcar (lambda(x) (* x amount)) rgb)))
-          (apply 'color-rgb-to-hex rgb-darkened)))
+      (apply 'color-rgb-to-hex rgb-darkened)))
   (auto-dim-other-buffers-mode)
   (run-with-timer 2 nil
                   (lambda ()
@@ -291,55 +351,24 @@
 
 (use-package nvm-switch
   :straight (nvm-switch
-	     :type git
-	     :host github
-	     :repo "tommos0/nvm-switch.el"
-	     :branch "main"))
+						 :type git
+						 :host github
+						 :repo "tommos0/nvm-switch.el"
+						 :branch "main"))
 
 (use-package jest-ts
   :straight (jest-ts
-	     :type git
+						 :type git
              :host github
-	     :repo "tommos0/jest-ts.el"
-	     :branch "master"))
+						 :repo "tommos0/jest-ts.el"
+						 :branch "master"))
 
 (use-package gptel
   :straight (gptel
-	     :type git
-	     :host github
-	     :repo "karthink/gptel"
-	     :branch "master"))
-
-(use-package company-box
-  :hook (company-mode . company-box-mode))
-
-(use-package copilot
-  :straight (copilot
-         :type git
-         :host github
-         :repo "zerolfx/copilot.el"
-         :files ("dist" "*.el"))
-  :after (company)
-  :config
-  (defun company-copilot-accept ()
-    "Accept copilot suggestion if company is not active."
-    (interactive)
-    (unless (company--active-p)
-      (copilot-accept-completion)))
-  (defun copilot-show-or-accept ()
-    "Show or accept copilot suggestion."
-    (interactive)
-    (if (copilot--overlay-visible)
-    (copilot-accept-completion)
-    (copilot-complete)))
-  :bind
-  ("C-c C-l C-l" . copilot-mode)
-  (:map copilot-mode-map
-    ("C-c C-l TAB" . copilot-show-or-accept)
-    ("C-c C-l C-j" . copilot-previous-completion)
-    ("C-c C-l C-k" . copilot-next-completion))
-  (:map copilot-completion-map
-	("TAB" . company-copilot-accept)))
+						 :type git
+						 :host github
+						 :repo "karthink/gptel"
+						 :branch "master"))
 
 (use-package evil-visualstar
   :config
@@ -374,12 +403,12 @@
   (recentf-max-menu-items 25))
 
 (setq
-  backup-directory-alist '(("." . "~/.emacs.saves"))
-  backup-by-copying t
-  delete-old-versions t
-  kept-new-versions 6
-  kept-old-versions 2
-  version-control t)
+ backup-directory-alist '(("." . "~/.emacs.saves"))
+ backup-by-copying t
+ delete-old-versions t
+ kept-new-versions 6
+ kept-old-versions 2
+ version-control t)
 
 (push (expand-file-name "~/.yarn/bin") exec-path)
 (push (expand-file-name "~/.local/bin") exec-path)
@@ -395,11 +424,13 @@
 (setq global-auto-revert-non-file-buffers 1)
 (column-number-mode t)
 (menu-bar-mode -1)
-(add-to-list 'auto-mode-alist '("\\.ts\\'" . typescript-ts-mode))
-(add-to-list 'auto-mode-alist '("\\.tsx\\'" . tsx-ts-mode))
-(add-to-list 'auto-mode-alist '("\\.json\\'" . json-ts-mode))
-(add-to-list 'auto-mode-alist '("\\.py\\'" . python-ts-mode))
-;(add-to-list 'auto-mode-alist '("Dockerfile\\'" . dockerfile-ts-mode))
+(scroll-bar-mode -1)
+
+;; (add-to-list 'auto-mode-alist '("\\.ts\\'" . typescript-ts-mode))
+;; (add-to-list 'auto-mode-alist '("\\.tsx\\'" . tsx-ts-mode))
+;; (add-to-list 'auto-mode-alist '("\\.json\\'" . json-ts-mode))
+;; (add-to-list 'auto-mode-alist '("\\.py\\'" . python-ts-mode))
+																				;(add-to-list 'auto-mode-alist '("Dockerfile\\'" . dockerfile-ts-mode))
 
 (defun flymake-eslint-enable--delayed ()
   "Seems necessary to make flymake-eslint actually enable."
@@ -408,6 +439,8 @@
 (add-hook 'prog-mode-hook 'flymake-mode)
 (add-hook 'typescript-ts-mode-hook 'flymake-eslint-enable--delayed)
 (add-hook 'tsx-ts-mode-hook 'flymake-eslint-enable--delayed)
+
+(use-package treesit-auto)
 
 (bind-key "C-x C-b" #'ibuffer)
 (bind-key "C-x C-k" #'kill-current-buffer)
@@ -439,10 +472,10 @@
   (defun eshell-append-history ()
     "Call `eshell-write-history' with the `append' parameter set to `t'."
     (when eshell-history-ring
-	(let ((newest-cmd-ring (make-ring 1)))
-	(ring-insert newest-cmd-ring (car (ring-elements eshell-history-ring)))
-	(let ((eshell-history-ring newest-cmd-ring))
-	    (eshell-write-history eshell-history-file-name t)))))
+			(let ((newest-cmd-ring (make-ring 1)))
+				(ring-insert newest-cmd-ring (car (ring-elements eshell-history-ring)))
+				(let ((eshell-history-ring newest-cmd-ring))
+					(eshell-write-history eshell-history-file-name t)))))
   :custom
   (eshell-save-history-on-exit nil)
   (eshell-history-size 25000)
@@ -488,9 +521,9 @@ They are added by some console.logs in ah-lint-config"
   :ensure nil
   :bind
   (:map flymake-mode-map
-	("C-c ! l" . flymake-show-buffer-diagnostics)
-	("C-c ! p" . flymake-goto-prev-error)
-	("C-c ! n" . flymake-goto-next-error)))
+				("C-c ! l" . flymake-show-buffer-diagnostics)
+				("C-c ! p" . flymake-goto-prev-error)
+				("C-c ! n" . flymake-goto-next-error)))
 
 (use-package git-timemachine
 	:straight (git-timemachine
@@ -502,9 +535,9 @@ They are added by some console.logs in ah-lint-config"
 (use-package elf-mode)
 
 (defun xdg-open () (interactive)
-  (let ((file (buffer-file-name)))
-    (when file
-      (shell-command (concat "xdg-open " file)))))
+			 (let ((file (buffer-file-name)))
+				 (when file
+					 (shell-command (concat "xdg-open " file)))))
 
 (defun yank-buffer-path (&optional root)
   "Copy the current buffer's path to the kill ring."
@@ -525,9 +558,9 @@ They are added by some console.logs in ah-lint-config"
 (defun dired-copy-file-path-as-kill () (interactive) (dired-copy-filename-as-kill 0))
 (bind-key "C-c C-y" #'dired-copy-file-path-as-kill 'dired-mode-map)
 (defun dired-find-marked-files ()
-       "Open each of the marked files"
-       (interactive)
-       (mapc 'find-file (dired-get-marked-files)))
+  "Open each of the marked files"
+  (interactive)
+  (mapc 'find-file (dired-get-marked-files)))
 (bind-key "F" #'dired-find-marked-files 'dired-mode-map)
 (put 'dired-find-alternate-file 'disabled nil)
 (setq dired-dwim-target t)
@@ -543,26 +576,26 @@ They are added by some console.logs in ah-lint-config"
 (load-file "/home/tomk/.doom.d/private.el")
 
 ;; font settings
-;(set-face-attribute 'default nil :family "SourceCodeVS" :height 105)
+																				;(set-face-attribute 'default nil :family "SourceCodeVS" :height 105)
 (set-face-attribute 'default nil :family "Liberation Mono" :height 96)
-;(set-face-attribute 'default nil :family "Fira Code" :height 105)
-;(set-face-attribute 'default nil :family "Hack" :height 105)
-;(set-face-attribute 'default nil :family "DejaVu Mono" :height 105)
+																				;(set-face-attribute 'default nil :family "Fira Code" :height 105)
+																				;(set-face-attribute 'default nil :family "Hack" :height 105)
+																				;(set-face-attribute 'default nil :family "DejaVu Mono" :height 105)
 (setq-default line-spacing 4)
 
 (use-package eglot-java
   :custom
   (eglot-java-eclipse-jdt-args '(
-    "-noverify"
-    "-Xmx1G"
-    "-XX:+UseG1GC"
-    "-XX:+UseStringDeduplication"
-    "-javaagent:/home/tomk/Downloads/lombok.jar"
-    "-Xbootclasspath/a:/home/tomk/Downloads/lombok.jar"))
+																 "-noverify"
+																 "-Xmx1G"
+																 "-XX:+UseG1GC"
+																 "-XX:+UseStringDeduplication"
+																 "-javaagent:/home/tomk/Downloads/lombok.jar"
+																 "-Xbootclasspath/a:/home/tomk/Downloads/lombok.jar"))
   :hook
   (java-mode . eglot-java-mode))
 
-;(use-package eshell-git-prompt)
+																				;(use-package eshell-git-prompt)
 (setenv "EDITOR" "emacsclient")
 (tool-bar-mode -1)
 (setq frame-resize-pixelwise t)
@@ -577,11 +610,11 @@ They are added by some console.logs in ah-lint-config"
 
 (require 'ob-shell)
 
-;(setq eglot-events-buffer-size 400000000)
+																				;(setq eglot-events-buffer-size 400000000)
 
 
 (use-package htmlize)
-;(use-package combobulate)
+																				;(use-package combobulate)
 
 ;; (defun toggle-maximize-buffer () "Maximize buffer"
 ;;   (interactive)
@@ -606,9 +639,9 @@ They are added by some console.logs in ah-lint-config"
     (let ((buffer-name (concat "Run *" (project-name (project-current)) "*")))
       ;; if the buffer doesn't exist, run the command
       (if (get-buffer buffer-name)
-	(switch-to-buffer buffer-name)
-	(let ((default-directory (project-root (project-current))))
-	  (async-shell-command project-start-command buffer-name))))))
+					(switch-to-buffer buffer-name)
+				(let ((default-directory (project-root (project-current))))
+					(async-shell-command project-start-command buffer-name))))))
 
 (bind-key "<f5>" #'project-start)
 
@@ -649,8 +682,8 @@ They are added by some console.logs in ah-lint-config"
   (ob-mermaid-cli-path "/home/tomk/.nvm/versions/node/v18.13.0/bin/mmdc")
   :config
   (org-babel-do-load-languages
-	'org-babel-load-languages
-	'((mermaid . t))))
+	 'org-babel-load-languages
+	 '((mermaid . t))))
 
 (defun clear-ahgraphql-turbo-cache () (interactive) (async-shell-command "rm -rf /home/tomk/git/ah/ah-graphql/node_modules/.cache/"))
 
@@ -659,7 +692,7 @@ They are added by some console.logs in ah-lint-config"
   (save-excursion
     (end-of-line)
     (let* ((output (shell-command-to-string command))
-	  (commented-string (concat "\n;; " (replace-regexp-in-string "\n" "\n;; " output))))
+					 (commented-string (concat "\n;; " (replace-regexp-in-string "\n" "\n;; " output))))
       (insert commented-string))))
 
 
@@ -678,7 +711,10 @@ They are added by some console.logs in ah-lint-config"
   (advice-mapc (lambda (advice _props) (advice-remove sym advice))
                sym))
 
-;(setq-default indent-tabs-mode nil)
+(setq-default indent-tabs-mode nil)
+(use-package dtrt-indent
+  :config
+  (dtrt-indent-global-mode t))
 
 (setq use-short-answers t)
 
@@ -734,14 +770,17 @@ They are added by some console.logs in ah-lint-config"
 (setq eshell-ls-initial-args '("-larth"))
 (defalias 'l 'eshell/ls)
 
-(defun restart-emacs--systemctl () (interactive) (async-shell-command "systemctl --user restart emacs"))
+(defun restart-emacs--systemctl ()
+  "Restart Emacs daemon (dangerous, does not save)."
+  (interactive)
+  (async-shell-command "systemctl --user restart emacs"))
 
 (use-package rcirc
   :custom
   (rcirc-ddefault-nick "Tommos0")
   (rcirc-server-alist '(("irc.libera.chat"
-                        :channels ("#emacs")
-                        :port 6697 :encryption tls))))
+                         :channels ("#emacs")
+                         :port 6697 :encryption tls))))
 
 ;; (use-package yascroll
 ;;   :custom
@@ -800,15 +839,20 @@ They are added by some console.logs in ah-lint-config"
 	(global-clipetty-mode))
 
 (use-package direnv
- :config
- (direnv-mode))
-
-(custom-set-faces
-    '(error ((t (:underline t)))))
+	:config
+	(direnv-mode))
 
 (setq vterm-shell "/bin/bash")
-(use-package makefile-executor)
+;;(use-package makefile-executor)
 (use-package ansi-color
-    :hook (compilation-filter . ansi-color-compilation-filter))
+  :hook (compilation-filter . ansi-color-compilation-filter))
+
+(use-package python-black
+   :hook (python-ts-mode . python-black-on-save-mode-enable-dwim))
+
+(use-package treesit-auto)
+(require 'ruff-flymake)
+(add-hook 'python-ts-mode-hook 'ruff-flymake-enable)
+
 
 ;;; init.el ends here
